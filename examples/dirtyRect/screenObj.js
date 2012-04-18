@@ -21,11 +21,11 @@ var TitleScreen = me.ScreenObject.extend(
       this.title         = null;
 		
       this.font          =  null;
-      //this.scrollerfont  =  null;
-      //this.scrollertween = null;
+      this.scrollerfont  =  null;
+      this.scrollertween = null;
 		
-      //this.scroller = "A SMALL STEP BY STEP TUTORIAL FOR GAME CREATION WITH MELONJS       ";
-      //this.scrollerpos = 600;
+      this.scroller = "A SMALL STEP BY STEP TUTORIAL FOR GAME CREATION WITH MELONJS       ";
+      this.scrollerpos = 600;
    },
    
    /* ---

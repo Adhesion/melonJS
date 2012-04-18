@@ -43,7 +43,7 @@ var jsApp	=
       me.sys.dirtyRegion = true;
       
       // some debug (draw the dirty area, if true)
-      me.debug.renderDirty = false;
+      me.debug.renderDirty = true;
       
       
       // init the video

@@ -195,8 +195,9 @@
 			// call the parent constructor
 			this.parent(new me.Vector2d(0, 0), this.image.width, this.image.height);
 
-			// base x offset within the image 
-			this.baseOffset = 0;
+			// base x & y offset within the image 
+			this.baseXOffset = 0;
+			this.baseYOffset = 0;
 
 			// z Index
 			this.z = zOrder || 0;
@@ -206,6 +207,7 @@
 
 			// link to the gameviewport width
 			this.vp_width = me.game.viewport.width;
+			this.vp_height= me.game.viewport.height;
 		},
 
 		/*--
@@ -217,15 +219,28 @@
 		draw : function(context, x, y) {
 			// all this part should redone !
 			var xpos = 0;
+			var ypos = 0;
 			var new_width = MIN(this.width - x, this.vp_width);
+			var new_height = MIN(this.height - y, this.vp_height);
+			var origX = x;
 			do {
-				context.drawImage(this.image, x, 0, new_width, this.height,
-						xpos, y, new_width, this.height);
+				context.drawImage(this.image, x, y, new_width, new_height,
+						xpos, ypos, new_width, new_height);
 
 				xpos += new_width;
 				x = 0; // x_offset
 				new_width = MIN(this.width, this.vp_width - xpos);
-			} while ((xpos < this.vp_width));
+                
+				if (xpos >= this.vp_width)
+				{
+					ypos += new_height;
+					y = 0;
+					new_height = MIN(this.height, this.vp_height - ypos);
+					x = origX;
+					xpos = 0;
+					var new_width = MIN(this.width - x, this.vp_width);
+				}
+			} while ((ypos < this.vp_height));
 		}
 
 	});
@@ -258,8 +273,9 @@
 					// link to the gameviewport
 					this.vp = me.game.viewport.pos;
 
-					// hold the last x position (to track viewport change)
+					// hold the last x & y positions (to track viewport change)
 					this.lastx = this.vp.x;
+					this.lasty = this.vp.y;
 
 					// hold all defined animation
 					this.parallaxLayers = [];
@@ -320,55 +336,44 @@
 				 * @protected
 				 */
 				draw : function(context) {
-					// last x pos of the viewport
+					// last x & y pos of the viewport
 					var x = this.vp.x;
+					var y = this.vp.y;
+					this.updated = false;
 
-					if (x > this.lastx) {
-						// going right
-						for ( var i = 0, layer; layer = this.parallaxLayers[i++];) {
-							// calculate the new basoffset
-							layer.baseOffset = (layer.baseOffset + layer.scrollspeed
+					for (var i = 0, layer; layer = this.parallaxLayers[i++];) {
+						if (x > this.lastx) {
+							layer.baseXOffset = (layer.baseXOffset + layer.scrollspeed
 									* me.timer.tick)
 									% layer.width;
-							// draw the layer
-							layer.draw(context, ~~layer.baseOffset, 0);
-							// save the last x pos
-							this.lastx = x;
-							// flag as updated
 							this.updated = true;
 						}
-						return;
-					} else if (x < this.lastx) {
-						// going left
-						for ( var i = 0, layer; layer = this.parallaxLayers[i++];) {
-							// calculate the new basoffset
-							layer.baseOffset = (layer.width + (layer.baseOffset - layer.scrollspeed
+						else if (x < this.lastx) {
+							layer.baseXOffset = (layer.width + (layer.baseXOffset - layer.scrollspeed
 									* me.timer.tick))
 									% layer.width;
-							// draw the layer
-							layer.draw(context, ~~layer.baseOffset, 0);
-							// save the last x pos
-							this.lastx = x;
-							// flag as updated
 							this.updated = true;
 						}
-						return;
+						if (y > this.lasty) {
+							layer.baseYOffset = (layer.baseYOffset + layer.scrollspeed
+									* me.timer.tick)
+									% layer.height;
+							this.updated = true;
+						}
+						else if (y < this.lasty) {
+							layer.baseYOffset = (layer.height + (layer.baseYOffset - layer.scrollspeed
+									* me.timer.tick))
+									% layer.height;
+							this.updated = true;
+						}
 
+						layer.draw(context, ~~layer.baseXOffset, ~~layer.baseYOffset);
 					}
 
-					// else nothing changes
-					for ( var i = 0, layer; layer = this.parallaxLayers[i++];) {
-						// draw the layer
-						layer.draw(context, ~~layer.baseOffset, 0);
-						// save the last x pos
-						this.lastx = x;
-						// flag as not updated
-						this.updated = false;
-					}
+					this.lastx = x;
+					this.lasty = y;
 				}
-
 			});
-
 
 	/**
 	 * A Simple object to display a sprite on screen.
