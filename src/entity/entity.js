@@ -238,7 +238,7 @@
 					new_height = MIN(this.height, this.vp_height - ypos);
 					x = origX;
 					xpos = 0;
-					var new_width = MIN(this.width - x, this.vp_width);
+					new_width = MIN(this.width - x, this.vp_width);
 				}
 			} while ((ypos < this.vp_height));
 		}
