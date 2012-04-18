@@ -107,6 +107,14 @@
 		 * @memberOf me.sys
 		 */
 		nativeBase64 : (typeof($.atob) == 'function'),
+		
+		/** 
+		 * Touch capabilities <br>
+		 * @type {Boolean}
+		 * @memberOf me.sys
+		 */
+		touch : false,
+
 
 		// Global settings
 		/** 
@@ -129,6 +137,15 @@
 		 * @memberOf me.sys
 		 */
 		scale : 1.0,
+		
+		/** 
+		 * Global gravity settings <br>
+		 * will override entities init value if defined<br>
+		 * default value : undefined
+		 * @type {Number}
+		 * @memberOf me.sys
+		 */
+		gravity : undefined,
 
 		/** 
 		 * Use native "requestAnimFrame" function if supported <br>
@@ -214,7 +231,7 @@
 			for ( var fn = 0; fn < readyList.length; fn++) {
 				readyList[fn].call($, []);
 			}
-			readyList = [];
+			readyList.length = 0;
 		}
 	}
 	;
@@ -639,7 +656,39 @@
 	 */
 	Number.prototype.sign = function() {
 		return this < 0 ? -1 : (this > 0 ? 1 : 0);  
-	}
+	};
+	
+	/**
+	 * Converts an angle in degrees to an angle in radians
+	 * @param {Number} [angle="angle"] angle in degrees
+	 * @extends Number
+	 * @return {Number} corresponding angle in radians
+	 * @example
+	 * // convert a specific angle
+	 * Number.prototype.degToRad (60); // return 1.0471...
+	 * // convert object value
+	 * var num = 60
+	 * num.degToRad(); // return 1.0471...
+	 */
+    Number.prototype.degToRad = function (angle) {
+        return (angle||this) / 180.0 * Math.PI;
+    };
+
+	/**
+	 * Converts an angle in radians to an angle in degrees.
+	 * @param {Number} [angle="angle"] angle in radians
+	 * @extends Number
+	 * @return {Number} corresponding angle in degrees
+	 * @example
+	 * // convert a specific angle
+	 * Number.prototype.radToDeg (1.0471975511965976); // return 59.9999...
+	 * // convert object value
+	 * num = 1.0471975511965976
+	 * Math.ceil(num.radToDeg()); // return 60
+	 */
+	Number.prototype.radToDeg = function (angle) {
+        return (angle||this) * (180.0 / Math.PI);
+    };
 
 	/************************************************************************************/
 
@@ -753,6 +802,9 @@
 			me.sys.sound = false;
 		}
 		
+		// detect touch capabilities
+		me.sys.touch = ('createTouch' in document) || ('ontouchstart' in $);
+		
 		// init the FPS counter if needed
 		me.timer.init();
 
@@ -808,8 +860,8 @@
 		 */
 		api.reset = function() {
 			// make sure it's empty
-			dirtyRects = [];
-			dirtyObjects = [];
+			dirtyRects.length = 0;
+			dirtyObjects.length = 0;
 
 			// set our cached rect to the actual screen size
 			fullscreen_rect = me.game.viewport.getRect();
@@ -857,7 +909,7 @@
 		 */
 		api.makeAllDirty = function() {
 			//empty the dirty rect list
-			dirtyRects = [];
+			dirtyRects.length = 0;
 			//and add a dirty region with the screen area size
 			dirtyRects.push(fullscreen_rect);
 			// make sure it's dirty
@@ -915,10 +967,10 @@
 			// only empty dirty area list if dirtyRec feature is enable
 			// allows to keep the viewport area as a default dirty rect
 			if (me.sys.dirtyRegion) {
-				dirtyRects = [];
+				dirtyRects.length = 0;
 			}
 			// empty the dirty object list
-			dirtyObjects = [];
+			dirtyObjects.length = 0;
 
 			// clear the flag
 			api.isDirty = false;
@@ -959,9 +1011,6 @@
 		// flag to redraw the sprites 
 		var initialized = false;
 
-		// to handle mouse event
-		var registeredMouseEventObj = [];
-      
 		// to keep track of deferred stuff
 		var pendingDefer = null;
       
@@ -973,7 +1022,7 @@
 		/**
 		 * a reference to the game viewport.
 		 * @public
-		 * @type me.ViewportEntity
+		 * @type me.Viewport
 		 * @name me.game#viewport
 		 */
 		api.viewport = null;
@@ -1025,6 +1074,20 @@
 		 * @name me.game#ACTION_OBJECT
 		 */
 		api.ACTION_OBJECT = 3; // door, etc...
+		
+		/**
+		 * Fired when a level is fully loaded and <br>
+		 * and all entities instantiated. <br>
+		 * Additionnaly the level id will also be passed
+		 * to the called function.
+		 * @public
+		 * @type function
+		 * @name me.game#onLevelLoaded
+		 * @example
+		 * call myFunction() everytime a level is loaded
+		 * me.game.onLevelLoaded = this.myFunction.bind(this);
+		 */
+		 api.onLevelLoaded = null;
 
 		/**
 		 * Initialize the game manager
@@ -1128,6 +1191,11 @@
 
 			// sort all our stuff !!
 			api.sort();
+			
+			// fire the callback if defined
+			if (api.onLevelLoaded) {
+				api.onLevelLoaded.apply(api.onLevelLoaded, new Array(level.name))
+			} 
 
 		};
 
@@ -1151,12 +1219,6 @@
 
 			// add the object in the game obj list
 			gameObjects.push(object);
-
-			// TO BE REMOVED
-			if (object.isClickable) {
-				// also add a reference in the object even list
-				registeredMouseEventObj.push(object);
-			}
 
 			// cache the number of object
 			objCount = gameObjects.length;
@@ -1254,22 +1316,6 @@
 			}
 		};
 
-		/**- 
-		 * propagate mouse event to objects
-		 * @private
-		 */
-		api.mouseEvent = function(v) {
-			for (var i = registeredMouseEventObj.length, obj; i--, obj = registeredMouseEventObj[i];) {
-				if (obj.isClickable && obj.collisionBox.containsPoint(v)) {
-					if (obj.clicked()){
-						// stop propagating the event
-						// if the functin return true
-						break;
-					}
-				}
-			}
-		};
-
 		/**
 		 * update all objects of the game manager
 		 * @name me.game#update
@@ -1321,11 +1367,6 @@
 				
 				// remove the object from the object to draw
 				drawManager.remove(obj);
-
-				if (obj.mouseEvent) {
-				   // remove object from the mouse event list
-				   registeredMouseEventObj.splice(registeredMouseEventObj.indexOf(obj), 1);
-				}
 				
 				// remove the object from the object list
 				/** @private */
@@ -1348,16 +1389,21 @@
 		 * @public
 		 * @function
 		 */
-
 		api.removeAll = function() {
+			// inform all object they are about to be deleted
+			for (var i = objCount, obj; i--, obj = gameObjects[i];) {
+				// force object deletion
+				obj.autodestroy = true; // do i keep this feature?
+				// notify the object
+				if(obj.destroy) {
+					obj.destroy();
+				}
+			}
 			//empty everything
 			objCount = 0;
-			gameObjects = [];
-			registeredMouseEventObj = [];
-
+			gameObjects.length = 0;
 			// make sure it's empty there as well
 			drawManager.flush();
-
 		};
 
 		/**
@@ -1374,11 +1420,6 @@
 			// since we use a reverse loop for the display 
 			gameObjects.sort(function(a, b) {
 				return (b.z - a.z);
-			});
-			
-			// also sort the clickable items per z order
-			registeredMouseEventObj.sort(function(a, b) {
-				return (a.z - b.z);
 			});
 
 			// make sure we redraw everything
@@ -1883,27 +1924,29 @@
 					_screenObject[_state].screen.destroy();
 			}
 			
-			
-			// set the global variable
-			_state = state;
-			
-			// call the reset function with _extraArgs as arguments
-			_screenObject[_state].screen.reset.apply(_screenObject[_state].screen, _extraArgs);
+			if (_screenObject[state])
+			{
+				// set the global variable
+				_state = state;
+				
+				// call the reset function with _extraArgs as arguments
+				_screenObject[_state].screen.reset.apply(_screenObject[_state].screen, _extraArgs);
 
-			// cache the new screen object update function
-			_activeUpdateFrame = _screenObject[_state].screen.onUpdateFrame.bind(_screenObject[_state].screen);
+				// cache the new screen object update function
+				_activeUpdateFrame = _screenObject[_state].screen.onUpdateFrame.bind(_screenObject[_state].screen);
 
-			// and start the main loop of the 
-			// new requested state
-			_startRunLoop();
+				// and start the main loop of the 
+				// new requested state
+				_startRunLoop();
 
-			// execute callback if defined
-			if (_onSwitchComplete) {
-				_onSwitchComplete();
-			}
-			
-			// force repaint
-			me.game.repaint();
+				// execute callback if defined
+				if (_onSwitchComplete) {
+					_onSwitchComplete();
+				}
+				
+				// force repaint
+				me.game.repaint();
+			 }
 		};
 
 		/*---------------------------------------------

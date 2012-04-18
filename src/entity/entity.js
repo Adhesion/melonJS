@@ -935,7 +935,7 @@
 					 * @type Number
 					 * @name me.ObjectEntity#gravity
 					 */
-					this.gravity = 0.98;
+					this.gravity = (me.sys.gravity!=undefined)?me.sys.gravity:0.98;
 
 					// just to identify our object
 					this.isEntity = true;
@@ -1079,7 +1079,7 @@
 
 				setVelocity : function(x, y) {
 					this.accel.x = (x != 0) ? x : this.accel.x;
-					this.accel.y = (x != 0) ? y : this.accel.y;
+					this.accel.y = (y != 0) ? y : this.accel.y;
 					
 					// limit by default to the same max value
 					this.setMaxVelocity(x,y);
@@ -1248,8 +1248,6 @@
 						vel.y = vel.y.clamp(-this.maxVel.y,this.maxVel.y);
 					if (vel.x !=0)
 						vel.x = vel.x.clamp(-this.maxVel.x,this.maxVel.x);
-					
-					return vel;
 				},
 
 				
@@ -1296,49 +1294,52 @@
 				 */
 				updateMovement : function() {
 
-					this.vel = this.computeVelocity(this.vel);
+					this.computeVelocity(this.vel);
 					
 					// check for collision
 					var collision = this.collisionMap.checkCollision(this.collisionBox, this.vel);
 
 					// update some flags
-					this.onladder = collision.xprop.isLadder;
 					this.onslope  = collision.yprop.isSlope || collision.xprop.isSlope;
+					// clear the ladder flag
+					this.onladder = false;
+
+					
 
 					// y collision
 					if (collision.y) {
 
-						// going down,
-						// collision with the floor
+						// going down, collision with the floor
+						this.onladder = collision.yprop.isLadder;
+						
 						if (collision.y > 0) {
-
-							if (collision.yprop.isSolid	|| (collision.yprop.isPlatform && (this.collisionBox.bottom <= collision.ytile.pos.y))) {
-								// round pos.y
+							if (collision.yprop.isSolid	|| (collision.yprop.isPlatform && (this.collisionBox.bottom - 1 <= collision.ytile.pos.y))) {
+								// adjust position to the corresponding tile
 								this.pos.y = ~~this.pos.y;
-								// adjust val to tile pos
-								this.vel.y = (this.falling) ? collision.ytile.pos.y	- ~~this.collisionBox.bottom : 0;
+								this.vel.y = (this.falling) ?collision.ytile.pos.y - this.collisionBox.bottom: 0 ;
 								this.falling = false;
-							} else if (collision.yprop.isSlope && !this.jumping) {
+							} 
+							else if (collision.yprop.isSlope && !this.jumping) {
 								// we stop falling
 								this.checkSlope(collision.ytile, collision.yprop.isLeftSlope);
 								this.falling = false;
-							} else if (collision.yprop.isBreakable) {
-								if (this.canBreakTile) {
+							} 
+							else if (collision.yprop.isBreakable) {
+								if  (this.canBreakTile) {
 									// remove the tile
 									me.game.currentLevel.clearTile(collision.ytile.row,	collision.ytile.col);
 									if (this.onTileBreak)
 										this.onTileBreak();
-								} else {
-									// cancel vel and adjust to tile pos
-									// round pos.y
+								}
+								else {
+									// adjust position to the corresponding tile
 									this.pos.y = ~~this.pos.y;
-									this.vel.y = (this.falling) ? collision.ytile.pos.y	- ~~this.collisionBox.bottom : 0;
+									this.vel.y = (this.falling) ?collision.ytile.pos.y - this.collisionBox.bottom: 0;
 									this.falling = false;
 								}
 							}
 						}
-						// going up
-						// collision with ceiling
+						// going up, collision with ceiling
 						else if (collision.y < 0) {
 							if (!collision.yprop.isPlatform	&& !collision.yprop.isLadder) {
 								this.falling = true;
@@ -1347,9 +1348,12 @@
 							}
 						}
 					}
-
+					
 					// x collision
 					if (collision.x) {
+						
+						this.onladder = collision.xprop.isLadder ;
+						
 						if (collision.xprop.isSlope && !this.jumping) {
 							this.checkSlope(collision.xtile, collision.xprop.isLeftSlope);
 							this.falling = false;
@@ -1369,6 +1373,7 @@
 						}
 					}
 
+					
 					// update player position
 					this.pos.add(this.vel);
 					
@@ -1426,6 +1431,15 @@
 			.extend(
 			/** @scope me.InvisibleEntity.prototype */
 			{
+				
+			   /**
+				* Entity "Game Unique Identifier"<br>
+				* @public
+				* @type String
+				* @name me.ObjectEntity#GUID
+				*/
+				GUID : null,
+				
 				// for z ordering
 				z : 0,
 				collisionBox : null,
@@ -1433,13 +1447,17 @@
 				/** @private */
 				init : function(x, y, settings) {
 					// call the parent constructor
-					this.parent(new me.Vector2d(x, y), settings.width,
-							settings.height);
+					this.parent(new me.Vector2d(x, y), settings.width, settings.height);
 
 					// create a a default collision rectangle
-					this.collisionBox = new me.Rect(this.pos, settings.width,
-							settings.height);
-
+					this.collisionBox = new me.Rect(this.pos, settings.width, settings.height);
+					
+					// set the object GUID value
+					this.GUID = me.utils.createGUID();
+					
+					// set the object entity name
+					this.name = settings.name?settings.name.toLowerCase():"";
+					
 					this.visible = true;
 
 					this.collidable = true;
@@ -1476,6 +1494,8 @@
 						this.onCollision(res, obj);
 						// return the type 
 						res.type = this.type;
+						// return a reference of the colliding object
+						res.obj  = this;
 						return res;
 					}
 					return null;

@@ -35,86 +35,82 @@
 		// actual lock status of each key
 		var keyLocked = [];
 
-		// callback function for mouse & gyro
-		var mouseEventCB = null;
-		var gyroEventCB = null;
-
 		// some usefull flags
 		var keyboardInitialized = false;
-
-		/*---
-			
-			enable keyboard event
-				
-			---*/
-		function enableKeyboardEvent(enable) {
-			if (enable) {
-				// Event Management
-				if (!keyboardInitialized) {
-					$.addEventListener('keydown', keydown, false);
-					$.addEventListener('keyup', keyup, false);
-				}
-			} else {
-				// remove the even listeners
-				$.removeEventListener('keydown', keydown, false);
-				$.removeEventListener('keyup', keyup, false);
-			}
-			keyboardInitialized = enable;
-		};
-
-		/* ---
-			
-			prevent event propagation
-				
-			---*/
-		function preventDefault(e) {
-			e.stopPropagation();
-			if (e.preventDefault)
-				e.preventDefault();
-			e.returnValue = false;
-			// this is apprently needed on some platforms
-			e.cancelBubble = true;
-		};
-
-		/* ---
-			
-			key down event
-				
-			---	*/
-		/*
-		function dispatchEvent (e)
-		{
-			var action = KeyBinding[e.keyCode || e.which];
-			
-			if(action)
-			{
-				console.log(e);
-				if ((e.type === "keydown")&&(!keyLocked[action]))
-				{
-						keyStatus[action] = true;
-						// lock the key if requested
-						keyLocked[action] = keyLock[action];
-				} 
-				else if(e.type === "keyup")
-				{
-					keyStatus[action] = false;
-					keyLocked[action] = false;
-				}
-			}
-			// prevent event propagation
-			preventDefault(event);
-			return false;
-		};
+		var mouseInitialized = false;
+		var accelInitialized = false;
+		
+		/**
+		 * enable keyboard event
+		 * @private
 		 */
 
-		function keydown(e) {
+		function enableKeyboardEvent() {
+			if (!keyboardInitialized) {
+				$.addEventListener('keydown', keydown, false);
+				$.addEventListener('keyup', keyup, false);
+				keyboardInitialized = true;
+			}
+		};
+		
+		/**
+		 * enable mouse event
+		 * @private
+		 */
+		function enableMouseEvent() {
+			if (!mouseInitialized) {
+				// initialize mouse pos (0,0)
+				obj.mouse.pos = new me.Vector2d(0,0);
+				// get relative canvas position in the page
+				obj.mouse.offset = me.video.getPos();
+				// add listener for touch event if supported
+				if (me.sys.touch) {
+					me.video.getScreenCanvas().addEventListener('touchmove', onMouseMove, false );
+					me.video.getScreenCanvas().addEventListener('touchstart', onMouseEvent, false );
+					me.video.getScreenCanvas().addEventListener('touchend', onMouseEvent, false );
+				}
+				// add listener for mouse event
+				else {
+					$.addEventListener('mousewheel', onMouseWheel, false );
+					me.video.getScreenCanvas().addEventListener('mousemove', onMouseMove, false);
+					me.video.getScreenCanvas().addEventListener('mousedown', onMouseEvent, false );
+					me.video.getScreenCanvas().addEventListener('mouseup', onMouseEvent, false );
+				}
+				mouseInitialized = true;
+			}
+		};
 
-			var action = KeyBinding[e.keyCode || e.which];
+
+		/**
+		 * prevent event propagation
+		 * @private
+		 */
+		function preventDefault(e) {
+			// stop event propagation
+			if (e.stopPropagation) {
+				e.stopPropagation();
+			}
+			else {
+				e.cancelBubble = true; 
+			}
+			// stop event default processing
+			if (e.preventDefault)  {
+				e.preventDefault();
+			}
+			else  {
+				e.returnValue = false;
+			}
+		};
+
+		/**
+		 * key down event
+		 * @private
+		 */
+		function keydown(e, keyCode) {
+
+			var action = KeyBinding[keyCode || e.keyCode || e.which];
 
 			if (action) {
-				//console.log(e, action);
-
-				//console.log(action);
 				if (!keyLocked[action]) {
 					keyStatus[action] = true;
 					// lock the key if requested
@@ -125,19 +121,16 @@
 				return false;
 			}
 			return true;
-		}
-		;
+		};
 
-		/* ---
-			
-			key up event
-				
-			---	*/
-		function keyup(e) {
 
-			var action = KeyBinding[e.keyCode || e.which];
+		/**
+		 * key up event
+		 * @private
+		 */
+		function keyup(e, keyCode) {
 
-			//console.log(e, action);
+			var action = KeyBinding[keyCode || e.keyCode || e.which];
 
 			if (action) {
 
@@ -150,64 +143,112 @@
 			return true;
 
 		}
-
-		/* ---
 		
-			 translate Mouse Coordinates
-			
-			---								*/
+		/**
+		 * propagate mouse event to registed object 
+		 * @private
+		 */
+		function dispatchMouseEvent(e) {
+			var handlers = obj.mouse.handlers[e.type];
+			if (handlers) {
+				var pos = obj.mouse.pos;
+				for (var i = handlers.length, handler; i--, handler = handlers[i];) {
+					// call the defined handler
+					if ((handler.rect === null) || handler.rect.containsPoint(pos)) {
+						if (handler.cb(e) === false) {
+							// stop propagating the event if return false 
+							break;
+						}
+					}
+				}
+			}
+
+		};
+
+		
+		/**
+		 * translate Mouse Coordinates
+		 * @private
+		 */
 		function updateMouseCoords(x, y) {
 			obj.mouse.pos.set(x,y);
 			obj.mouse.pos.sub(obj.mouse.offset);
-			return obj.mouse.pos;
+			if (me.sys.scale != 1.0) {
+				obj.mouse.pos.div(me.sys.scale);
+			}
+		};
+
+	
+		/**
+		 * mouse event management (mousewheel)
+		 * @private
+		 */
+		function onMouseWheel(e) {
+			// dispatch mouse event to registered object
+			dispatchMouseEvent(e);
+			// prevent default action
+			preventDefault(e);
 		};
 
 		
-		/* ---
-		
-			 mouse event management (click)
-			
-			---										*/
+		/**
+		 * mouse event management (mousemove)
+		 * @private
+		 */
 		function onMouseMove(e) {
-			// update mouse position
-			updateMouseCoords(e.pageX, e.pageY);
+			// update position
+			if (e.touches) {
+				updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+			}
+			else {
+				updateMouseCoords(e.pageX, e.pageY);
+			}
+			// dispatch mouse event to registered object
+			dispatchMouseEvent(e);
+			// prevent default action
+			preventDefault(e);
 		};
 		
-		/* ---
-		
-			 mouse event management (click)
-			
-			---										*/
+		/**
+		 * mouse event management (mousedown, mouseup)
+		 * @private
+		 */
 		function onMouseEvent(e) {
-			// propagate the event to the callback with x,y coords
-			mouseEventCB(obj.mouse.pos);
+			// update position in case of touch event 
+			// note : we should just have touchstart/touchend here
+			if (e.type === 'touchstart') {
+				// TODO : add multiple touch handling
+				updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+			}
+			
+			// in case of touch event button is undefined
+			var keycode = obj.mouse.bind[e.button || 0];
+
+			// dispatch event to registered objects
+			dispatchMouseEvent(e);		
+			// check if mapped to a key
+			if (keycode) {
+				if (e.type === 'mousedown' || e.type === 'touchstart')
+					keydown(e, keycode);
+				else // 'mouseup' or 'touchend'
+					keyup(e, keycode);
+			}
+			else {
+				// prevent default action
+				preventDefault(e);
+			}
 		};
 		
-		/* ---
-			
-				 event management (Gyroscopic)
-				
-				---										*/
-		function onGyroEvent(event) {
-			// http://www.mobilexweb.com/samples/ball.html
-			// http://www.mobilexweb.com/blog/safari-ios-accelerometer-websockets-html5
-			// 
-			// ax = event.accelerationIncludingGravity.x;
-			// ay = event.accelerationIncludingGravity.y;
-
-			// use acceleration instead on iphone4  
-			// event.accelerationIncludingGravity.x
-			// event.accelerationIncludingGravity.y
-			// event.accelerationIncludingGravity.z
-
-			// Gyroscope
-			// window.ondeviceorientation = function(event) {
-			// event.alpha
-			// event.beta
-			// event.gamma
-			//}
-		}
-		;
+		/**
+		 * event management (Accelerometer)
+		 * http://www.mobilexweb.com/samples/ball.html
+		 * http://www.mobilexweb.com/blog/safari-ios-accelerometer-websockets-html5
+		 * @private		
+		 */
+		function onDeviceMotion(e) {
+			// Accelerometer information  
+			obj.accel = e.accelerationIncludingGravity;
+		};
 
 		/*---------------------------------------------
 			
@@ -215,11 +256,43 @@
 				
 		  ---------------------------------------------*/
 		
+		/**
+		 * Accelerometer information<br>
+		 * properties : x, y, z
+		 * @public
+		 * @enum {number}
+		 * @name me.input#accel
+		 */
+		obj.accel = {
+			x: 0, 
+			y: 0, 
+			z: 0
+		};
 		
-		obj.mouse = {
+		/**
+		 * Mouse information<br>
+		 * properties : <br>
+		 * pos (me.Vector2d) : pointer position <br>
+		 * LEFT : constant for left button <br>
+		 * MIDDLE : constant for middle button <br>
+		 * RIGHT : constant for right button <br>
+		 * @public
+		 * @enum {number}
+		 * @name me.input#mouse
+		 */		
+		 obj.mouse = {
+			// mouse position
 			pos : null,
-			offset : null
-		}
+			// canvas offset
+			offset : null,
+			// button constants (W3C)
+			LEFT:	0,
+			MIDDLE: 1,
+			RIGHT:	2,
+			// bind list for mouse buttons
+			bind: [3],
+			handlers:{} 
+		};
 		
 		/**
 		 * list of mappable keys :
@@ -275,7 +348,7 @@
 			'W' : 87,
 			'X' : 88,
 			'Y' : 89,
-			'Z' : 90,
+			'Z' : 90
 		};
 
 		/**
@@ -283,6 +356,8 @@
 		 * @name me.input#isKeyPressed
 		 * @public
 		 * @function
+		 * @param {String} action user defined corresponding action
+		 * @return {boolean} true if pressed
 		 * @example
 		 * if (me.input.isKeyPressed('left'))
 		 * {
@@ -312,6 +387,7 @@
 		 * @name me.input#keyStatus
 		 * @public
 		 * @function
+		 * @param {String} action user defined corresponding action
 		 * @return {boolean} down (true) or up(false)
 		 */
 
@@ -319,6 +395,29 @@
 			return (keyLocked[action] === true) ? true : keyStatus[action];
 		};
 
+		
+		/**
+		 * change the status of the specified key<br>
+		 * @name me.input#updateKey
+		 * @public
+		 * @function
+		 * @param {me.input#KEY} keycode
+		 * @param {boolean} true to simulate a key press, or false for key release
+		 * @example
+		 * // simulate a key press
+		 * me.input.updateKey(me.input.KEY.LEFT, true);
+		 */
+
+		obj.updateKey = function(keycode, status) {
+			if (status) {
+				keydown({}, keycode);
+			}
+			else {
+				keyup({}, keycode);
+			}
+		};
+
+		
 		/**
 		 * associate a user defined action to a keycode
 		 * @name me.input#bindKey
@@ -334,21 +433,21 @@
 		 * me.input.bindKey(me.input.KEY.X,     "jump", true);
 		 */
 		obj.bindKey = function(keycode, action, lock) {
-			if (!keyboardInitialized)
-				enableKeyboardEvent(true);
+			// make sure the keyboard is enable
+			enableKeyboardEvent();
 
 			KeyBinding[keycode] = action;
 
 			keyLock[action] = lock ? lock : false;
 			keyLocked[action] = false;
-			//console.log(this);
 		};
-
+		
 		/**
 		 * unbind the defined keycode
 		 * @name me.input#unbindKey
 		 * @public
 		 * @function
+		 * @param {me.input#KEY} keycode
 		 * @example
 		 * me.input.unbindKey(me.input.KEY.LEFT);
 		 */
@@ -361,44 +460,207 @@
 		};
 
 		/**
-		 * enable mouse event
-		 * @name me.input#enableMouseEvent
+		 * Associate a mouse (button) action to a keycode
+		 * Left button – 0
+		 * Middle button – 1
+		 * Right button – 2
+		 * @name me.input#bindMouse
 		 * @public
 		 * @function
-		 * @deprecated to be rewritten
+		 * @param {Integer} button (accordingly to W3C values : 0,1,2 for left, middle and right buttons)
+		 * @param {me.input#KEY} keyCode
+		 * @example
+		 * // enable the keyboard
+		 * me.input.bindKey(me.input.KEY.X, "shoot");
+		 * // map the left button click on the X key
+		 * me.input.bindMouse(me.input.mouse.LEFT, me.input.KEY.X);
 		 */
-		obj.enableMouseEvent = function(enable, callback) {
-			if (enable) {
-				// initialize mouse pos (0,0)
-				obj.mouse.pos = new me.Vector2d(0,0);
-				// get relative canvas position in the page
-				obj.mouse.offset = me.video.getPos();
-				// add a listener for the mouse
-				me.video.getScreenCanvas().addEventListener('mousemove', onMouseMove, false);
-				me.video.getScreenCanvas().addEventListener('click', onMouseEvent, false);
-				
-				// set the callback
-				mouseEventCB = callback || me.game.mouseEvent.bind(me.game);
-			} else {
-				me.video.getScreenCanvas().removeEventListener('mousemove', onMouseMove, false);
-				me.video.getScreenCanvas().removeEventListener('click', onMouseEvent, false);
+		obj.bindMouse = function (button, keyCode)
+		{
+			// make sure the mouse is initialized
+			enableMouseEvent();
+			
+			// throw an exception if no action is defined for the specified keycode
+			if (!KeyBinding[keyCode])
+			  throw "melonJS : no action defined for keycode " + keyCode;
+			// map the mouse button to the keycode
+			obj.mouse.bind[button] = keyCode;
+		};
+		/**
+		 * unbind the defined keycode
+		 * @name me.input#unbindMouse
+		 * @public
+		 * @function
+		 * @param {Integer} button (accordingly to W3C values : 0,1,2 for left, middle and right buttons)
+		 * @example
+		 * me.input.unbindMouse(me.input.mouse.LEFT);
+		 */
+		obj.unbindMouse = function(button) {
+			// clear the event status
+			obj.mouse.bind[button] = null;
+		};
+		
+		/**
+		 * Associate a touch action to a keycode
+		 * @name me.input#bindTouch
+		 * @public
+		 * @function
+		 * @param {me.input#KEY} keyCode
+		 * @example
+		 * // enable the keyboard
+		 * me.input.bindKey(me.input.KEY.X, "shoot");
+		 * // map the touch event on the X key
+		 * me.input.bindTouch(me.input.KEY.X);
+		 */
+		obj.bindTouch = function (keyCode)
+		{	
+			// reuse the mouse emulation stuff
+			// where left mouse button is map to touch event
+			object.bindMouse(me.input.mouse.LEFT,keycode);
+		};
+		
+		/**
+		 * unbind the defined touch binding
+		 * @name me.input#unbindTouch
+		 * @public
+		 * @function
+		 * @example
+		 * me.input.unbindTouch();
+		 */
+		obj.unbindTouch = function() {
+			// clear the key binding
+			obj.unbindMouse(me.input.mouse.LEFT);
+		};
+
+
+			
+		/**
+		 * register on a mouse event for a given region
+		 * note : on a touch enabled device mouse event will automatically be converted to touch event
+		 * @name me.input#registerMouseEvent
+		 * @public
+		 * @function
+		 * @param {String} eventType ('mousemove','mousedown','mouseup','mousewheel','touchstart','touchmove','touchend')
+		 * @param {me.Rect} rect (object must inherits from me.Rect)
+		 * @param {Function} callback
+		 * @example
+		 * // register on the 'mousemove' event
+		 * me.input.registerMouseEvent('mousemove', this.collisionBox, this.mouseMove.bind(this));
+		 */
+		obj.registerMouseEvent = function(eventType, rect, callback) {
+			// make sure the mouse is initialized
+			enableMouseEvent();
+			
+			// register the mouse handler
+			switch (eventType) {
+				case 'mousewheel':
+				case 'mousemove':
+				case 'mousedown':
+				case 'mouseup':
+				case 'touchmove':
+				case 'touchstart':
+				case 'touchend':
+					// convert mouse event to touch event
+					// if on a touch enable device
+					if (me.sys.touch) {
+						// to be optimized
+						if (eventType == 'mousemove')
+							eventType = 'touchmove';
+						else if (eventType == 'mousedown')
+							eventType = 'touchstart';
+						else if (eventType == 'mouseup')
+							eventType = 'touchend';
+					} 
+					if (!obj.mouse.handlers[eventType]) {
+						obj.mouse.handlers[eventType] = [];
+ 					}
+					obj.mouse.handlers[eventType].push({rect:rect||null,cb:callback});
+					break;
+				default :
+					throw "melonJS : invalid event type : " + eventType;
 			}
+		};
+		
+		/**
+		 * release the previously registered mouse event callback
+		 * note : on a touch enabled device mouse event will automatically be converted to touch event
+		 * @name me.input#releaseMouseEvent
+		 * @public
+		 * @function
+		 * @param {String} eventType ('mousemove','mousedown','mouseup','mousewheel','touchstart','touchmove','touchend')
+		 * @param {me.Rect} region
+		 * @example
+		 * // release the registered callback on the 'mousemove' event
+		 * me.input.releaseMouseEvent('mousemove', this.collisionBox);
+		 */
+		obj.releaseMouseEvent = function(eventType, rect) {
+			switch (eventType) {
+				case 'mousewheel':
+				case 'mousemove':
+				case 'mousedown':
+				case 'mouseup':
+				case 'touchmove':
+				case 'touchstart':
+				case 'touchend':
+					// convert mouse event to touch event
+					// if on a touch enable device
+					if (me.sys.touch) {
+						// to be optimized
+						if (eventType == 'mousemove')
+							eventType = 'touchmove';
+						else if (eventType == 'mousedown')
+							eventType = 'touchstart';
+						else if (eventType == 'mouseup')
+							eventType = 'touchend';
+					}
+					var handlers = obj.mouse.handlers[eventType];
+					if (handlers) {
+						for (var i = handlers.length, handler; i--, handler = handlers[i];) {
+							if (handler.rect === rect) {
+								// make sure all references are null
+								handler.rect = handler.cb = null;
+								obj.mouse.handlers[eventType].splice(i, 1);
+							}
+						}
+					}
+					break;
+				default :
+					throw "melonJS : invalid event type : " + eventType;
+			}
+
 		};
 
 		/**
-		 * enable gyroscopic event (not implemented)
-		 * @name me.input#enableGyroscopicEvent
+		 * watch Accelerator event 
+		 * @name me.input#watchAccelerometer
+		 * @public
+		 * @function
+		 * @return {boolean} false if not supported by the device
+		 */
+		obj.watchAccelerometer = function() {
+			if ($.sys.gyro) {
+				if (!accelInitialized) {
+					// add a listener for the mouse
+					$.addEventListener('devicemotion', onDeviceMotion, false);
+					accelInitialized = true;
+				}
+				return true;
+			}
+			return false;
+		};
+		
+		/**
+		 * unwatch Accelerometor event 
+		 * @name me.input#unwatchAccelerometer
 		 * @public
 		 * @function
 		 */
-		obj.enableGyroscopicEvent = function(enable, callback) {
-			if ($.sys.gyro) {
+		obj.unwatchAccelerometer = function() {
+			if (accelInitialized) {
 				// add a listener for the mouse
-				$.ondevicemotion = enable ? onGyroEvent : null;
-				// set the callback
-				gyroEventCB = enable ? callback : null;
+				$.removeEventListener('devicemotion', onDeviceMotion, false);
+				accelInitialized = false;
 			}
-
 		};
 
 		// return our object

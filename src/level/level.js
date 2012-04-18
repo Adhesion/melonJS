@@ -14,22 +14,36 @@
 	me.LevelConstants = {
 		//# name of the collision map
 		COLLISION_MAP : "collision",
-		PARALLAX_MAP : "parallax",
+		PARALLAX_MAP : "parallax"
 	};
 
 	/**
 	 * a basic tile object
+	 * @class
+	 * @extends me.Rect
 	 * @memberOf me
-	 * @private
 	 * @constructor
+	 * @param {int} x x index of the Tile in the map
+	 * @param {int} y y index of the Tile in the map
+	 * @param {int} w Tile width
+	 * @param {int} h Tile height
+	 * @param {int} tileId tileId>
 	 */
 	me.Tile = me.Rect.extend({
+		 /**
+		  * tileId
+		  * @public
+		  * @type int
+		  * @name me.Tile#tileId
+		  */
+		tileId : null,
+		
+		/** @private */
 		init : function(x, y, w, h, tileId) {
 			this.parent(new me.Vector2d(x * w, y * h), w, h);
-
 			// tileID
 			this.tileId = tileId;
-
+			// Tile row / col pos
 			this.row = x;
 			this.col = y;
 		}
@@ -37,8 +51,8 @@
 
 	/**
 	 * a Tile Set Object
+	 * @class
 	 * @memberOf me
-	 * @private
 	 * @constructor
 	 */
 	me.Tileset = Object.extend({
@@ -99,8 +113,25 @@
 			};
 		},
 		
-		// return the assiocated property of the specified tile
+		// 
 		// e.g. getTileProperty (gid)	
+		/**
+		 * return the properties of the specified tile <br>
+		 * the function will return an object with the following boolean value :<br>
+		 * - isCollidable<br>
+		 * - isSolid<br>
+		 * - isPlatform<br>
+		 * - isSlope <br>
+		 * - isLeftSlope<br>
+		 * - isRightSlope<br>
+		 * - isLadder<br>
+		 * - isBreakable<br>
+		 * @name me.Tileset#getTileProperties
+		 * @public
+		 * @function
+		 * @param {Integer} tileId 
+		 * @return {Object}
+		 */
 		getTileProperties: function(tileId) {
 			return this.TileProperties[tileId];
 		},
@@ -245,8 +276,8 @@
 
 	/**
 	 * a generic tile based layer object
+	 * @class
 	 * @memberOf me
-	 * @private
 	 * @constructor
 	 */
 	me.TiledLayer = Object.extend({
@@ -275,9 +306,15 @@
 			this.xLUT = {};
 			this.yLUT = {};
 
-			// a reference to the tilesets object
+			/**
+			 * The Layer corresponding Tilesets
+			 * @public
+			 * @type me.TMXTilesetGroup
+			 * @name me.TiledLayer#tilesets
+			 */
 			this.tilesets = tilesets;
-			// link to the first tileset by default
+
+			// the default tileset
 			this.tileset = tilesets?this.tilesets.getTilesetByIndex(0):null;
 		},
 
@@ -309,35 +346,54 @@
 		},
 		
 		/**
-		 * get the x,y tile
-		 * @private
+		 * Return the TileId of the Tile at the specified position
+		 * @name me.TiledLayer#getTileId
+		 * @public
+		 * @function
+		 * @param {Integer} x x position 
+		 * @param {Integer} y y position
+		 * @return {Int} TileId
 		 */
 		getTileId : function(x, y) {
-			//return this.layerData[~~(x / this.tilewidth)][~~(y / this.tileheight)];
-			var tile = this.layerData[this.xLUT[~~x]][this.yLUT[~~y]];
+			//xLut = x / this.tilewidth, yLut = y / this.tileheight;
+			var tile = this.layerData[this.xLUT[x]][this.yLUT[y]];
 			return tile ? tile.tileId : null;
 		},
 		
 		/**
-		 * get the x,y tile
-		 * @private
+		 * Return the Tile object at the specified position
+		 * @name me.TiledLayer#getTile
+		 * @public
+		 * @function
+		 * @param {Integer} x x position 
+		 * @param {Integer} y y position
+		 * @return {me.Tile} Tile Object
 		 */
 		getTile : function(x, y) {
-			//return this.layerData[~~(x / this.tilewidth)][~~(y / this.tileheight)];
-			return this.layerData[this.xLUT[~~x]][this.yLUT[~~y]];
+			//xLut = x / this.tilewidth, yLut = y / this.tileheight;
+			return this.layerData[this.xLUT[x]][this.yLUT[y]];
 		},
 
 		/**
-		 * set the x,y tile
-		 * @private
+		 * Create a new Tile at the specified position
+		 * @name me.TiledLayer#setTile
+		 * @public
+		 * @function
+		 * @param {Integer} x x position 
+		 * @param {Integer} y y position
+		 * @param {Integer} tileId tileId
 		 */
 		setTile : function(x, y, tileId) {
 			this.layerData[x][y] = new me.Tile(x, y, this.tilewidth, this.tileheight, tileId);
 		},
 
 		/**
-		 * clear a tile
-		 * @private
+		 * clear the tile at the specified position
+		 * @name me.TiledLayer#clearTile
+		 * @public
+		 * @function
+		 * @param {Integer} x x position 
+		 * @param {Integer} y y position 
 		 */
 		clearTile : function(x, y) {
 			// clearing tile
@@ -353,8 +409,8 @@
 		 */
 		checkCollision : function(obj, pv) {
 
-			var x = (pv.x < 0) ? obj.left + pv.x : obj.right + pv.x;
-			var y = (pv.y < 0) ? obj.top + pv.y : obj.bottom + pv.y;
+			var x = (pv.x < 0) ? ~~(obj.left + pv.x) : Math.ceil(obj.right  - 1 + pv.x);
+			var y = (pv.y < 0) ? ~~(obj.top  + pv.y) : Math.ceil(obj.bottom - 1 + pv.y);
 			//to return tile collision detection
 			var res = {
 				x : 0, // !=0 if collision on x axis
@@ -364,37 +420,39 @@
 				ytile : undefined,
 				yprop : {}
 			};
-
+			
 			//var tile;
 			if (x <= 0 || x >= this.realwidth) {
 				res.x = pv.x;
-			} else {
+			} else if (pv.x != 0 ) {
 				// x, bottom corner
-				res.xtile = this.getTile(x, obj.bottom - 1);// obj.height - 1
+				res.xtile = this.getTile(x, Math.ceil(obj.bottom - 1));
 				if (res.xtile && this.tileset.isTileCollidable(res.xtile.tileId)) {
 					res.x = pv.x; // reuse pv.x to get a 
 					res.xprop = this.tileset.getTileProperties(res.xtile.tileId);
 				} else {
 					// x, top corner
-					res.xtile = this.getTile(x, obj.top);
+					res.xtile = this.getTile(x, ~~obj.top);
 					if (res.xtile && this.tileset.isTileCollidable(res.xtile.tileId)) {
 						res.x = pv.x;
 						res.xprop = this.tileset.getTileProperties(res.xtile.tileId);
 					}
 				}
 			}
-
+			
 			// check for y movement
 			// left, y corner
-			res.ytile = this.getTile((pv.x < 0) ? obj.left : obj.right, y);// obj.width + 1
-			if (res.ytile && this.tileset.isTileCollidable(res.ytile.tileId)) {
-				res.y = pv.y || 1;
-				res.yprop = this.tileset.getTileProperties(res.ytile.tileId);
-			} else { // right, y corner
-				res.ytile = this.getTile((pv.x < 0) ? obj.right : obj.left, y);
+			if ( pv.y != 0 ) {
+				res.ytile = this.getTile((pv.x < 0) ? ~~obj.left : Math.ceil(obj.right - 1), y);
 				if (res.ytile && this.tileset.isTileCollidable(res.ytile.tileId)) {
 					res.y = pv.y || 1;
 					res.yprop = this.tileset.getTileProperties(res.ytile.tileId);
+				} else { // right, y corner
+					res.ytile = this.getTile((pv.x < 0) ? Math.ceil(obj.right - 1) : ~~obj.left, y);
+					if (res.ytile && this.tileset.isTileCollidable(res.ytile.tileId)) {
+						res.y = pv.y || 1;
+						res.yprop = this.tileset.getTileProperties(res.ytile.tileId);
+					}
 				}
 			}
 			// return the collide object
@@ -412,8 +470,8 @@
 	
 	/**
 	 * a basic level object skeleton
+	 * @class
 	 * @memberOf me
-	 * @private
 	 * @constructor
 	 */
 	me.TileMap = Object.extend({
@@ -421,17 +479,61 @@
 		init: function(x, y) {
 			this.pos = new me.Vector2d(x, y);
 			this.z = 0;
-
-			// tilemap size
+			
+			/**
+			 * name of the tilemap
+			 * @public
+			 * @type String
+			 * @name me.TileMap#name
+			 */
+			this.name = null;
+			
+			/**
+			 * width of the tilemap in Tile
+			 * @public
+			 * @type Int
+			 * @name me.TileMap#width
+			 */
 			this.width = 0;
+			
+			/**
+			 * height of the tilemap in Tile
+			 * @public
+			 * @type Int
+			 * @name me.TileMap#height
+			 */
 			this.height = 0;
 
-			// realwidth (in pixels) of the level
+			/**
+			 * width of the tilemap in pixels
+			 * @public
+			 * @type Int
+			 * @name me.TileMap#realwidth
+			 */
 			this.realwidth = -1;
+			
+			/**
+			 * height of the tilemap in pixels
+			 * @public
+			 * @type Int
+			 * @name me.TileMap#realheight
+			 */
 			this.realheight = -1;
 
-			// tile size
+			/**
+			 * Tile width
+			 * @public
+			 * @type Int
+			 * @name me.TileMap#tilewidth
+			 */
 			this.tilewidth = 0;
+
+			/**
+			 * Tile height
+			 * @public
+			 * @type Int
+			 * @name me.TileMap#tileheight
+			 */
 			this.tileheight = 0;
 
 			// corresponding tileset for this map
@@ -453,8 +555,8 @@
 		 */
 		reset : function() {
 			this.tilesets = null;
-			this.mapLayers = [];
-			this.objectGroups = [];
+			this.mapLayers.length = 0;
+			this.objectGroups.length = 0;
 			this.initialized = false;
 		},
 
@@ -476,7 +578,11 @@
 
 		/**
 		 * return the specified layer object
-		 * @private		
+		 * @name me.TileMap#getLayerByName
+		 * @public
+		 * @function
+		 * @param {String} name Layer Name 
+		 * @return {me.TiledLayer} Layer Object
 		 */
 		getLayerByName : function(name) {
 			var layer = null;
@@ -499,9 +605,13 @@
 		},
 
 		/**
-		 * clear a tile from all layers
-		 * @private
-		 **/
+		 * clear the tile at the specified position from all layers
+		 * @name me.TileMap#clearTile
+		 * @public
+		 * @function
+		 * @param {Integer} x x position 
+		 * @param {Integer} y y position 
+		 */
 		clearTile : function(x, y) {
 			// add all layers
 			for ( var i = this.mapLayers.length; i--;) {
@@ -563,15 +673,16 @@
 
 		// our levels
 		var levels = {};
-		// current level
-		var currentLevel = null;
-
+		// level index table
+		var levelIdx = [];
+		// current level index
+		var currentLevelIdx = 0;
+		
 		/*---------------------------------------------
 			
 			PUBLIC STUFF
 				
-			---------------------------------------------*/
-
+  		  ---------------------------------------------*/
 		/**
 		 * reset the level director 
 		 * @private
@@ -598,6 +709,10 @@
 			if (levels[levelId] == null) {
 				//console.log("loading "+ levelId);
 				levels[levelId] = new me.TMXTileMap(levelId, 0, 0);
+				// set the name of the level
+				levels[levelId].name = levelId;
+				// level index
+				levelIdx[levelIdx.length] = levelId;
 			}
 			//else console.log("level %s already loaded", levelId);
 
@@ -626,12 +741,15 @@
 		 * // load a level
 		 * me.levelDirector.loadLevel("a4_level1");
 		 */
-		obj.loadLevel = function(level) {
-			if (levels[level] === undefined) {
-				throw ("melonJS: level " + level + " not found");
+		obj.loadLevel = function(levelId) {
+			// make sure it's a string
+			levelId = levelId.toString().toLowerCase();
+			// throw an exception if not existing
+			if (levels[levelId] === undefined) {
+				throw ("melonJS: level " + levelId + " not found");
 			}
 
-			if (levels[level] instanceof me.TMXTileMap) {
+			if (levels[levelId] instanceof me.TMXTileMap) {
 
 				// check the status of the state mngr
 				var isRunning = me.state.isRunning();
@@ -647,16 +765,18 @@
 				
 				// reset the GUID generator
 				// and pass the level id as parameter
-				me.utils.resetGUID(level);
+				me.utils.resetGUID(levelId);
 				
 				// load the level
-				levels[level].reset();
-				levels[level].load();
-				// set the current level
-				currentLevel = level;
+				levels[levelId].reset();
+				levels[levelId].load();
+			
+				// update current level index
+				currentLevelIdx = levelIdx.indexOf(levelId);
+				
 				// add the specified level to the game manager
-				me.game.loadTMXLevel(levels[currentLevel]);
-
+				me.game.loadTMXLevel(levels[levelId]);
+				
 				if (isRunning) {
 					// resume the game loop if it was
 					// previously running
@@ -664,6 +784,8 @@
 				}
 			} else
 				throw "melonJS: no level loader defined";
+			
+			return true;
 		};
 
 		/**
@@ -674,7 +796,7 @@
 		 * @return {String}
 		 */
 		obj.getCurrentLevelId = function() {
-			return currentLevel;
+			return levelIdx[currentLevelIdx];
 		},
 
 		/**
@@ -686,7 +808,7 @@
 		obj.reloadLevel = function() {
 			// reset the level to initial state
 			//levels[currentLevel].reset();
-			return obj.loadLevel(currentLevel);
+			return obj.loadLevel(obj.getCurrentLevelId());
 		},
 
 		/**
@@ -697,8 +819,8 @@
 		 */
 		obj.nextLevel = function() {
 			//go to the next level 
-			if (currentLevel + 1 < levels.length) {
-				return obj.loadLevel(currentLevel + 1);
+			if (currentLevelIdx + 1 < levelIdx.length) {
+				return obj.loadLevel(levelIdx[currentLevelIdx + 1]);
 			} else {
 				return false;
 			}
@@ -712,24 +834,12 @@
 		 */
 		obj.previousLevel = function() {
 			// go to previous level
-			if (currentLevel - 1 >= 0) {
-				return obj.loadLevel(currentLevel - 1);
+			if (currentLevelIdx - 1 >= 0) {
+				return obj.loadLevel(levelIdx[currentLevelIdx - 1]);
 			} else {
 				return false;
 			}
 		};
-
-		/* -----
-
-			set the specified level  
-		
-			------ 
-		
-		obj.goToLevel = function(level)
-		{
-			obj.loadLevel(level);
-		};
-		 */
 
 		// return our object
 		return obj;
