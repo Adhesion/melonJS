@@ -1401,7 +1401,9 @@
 			}
 			//empty everything
 			objCount = 0;
-			gameObjects.length = 0;
+			//gameObjects.length = 0;
+            delete gameObjects;
+            gameObjects = [];
 			// make sure it's empty there as well
 			drawManager.flush();
 		};

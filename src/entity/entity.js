@@ -999,7 +999,7 @@
 
 					
 					// ref to the collision map
-					this.collisionMap = me.game.collisionMap;
+					//this.collisionMap = me.game.collisionMap;
 					
 					// to know if our object can break tiles
 					/**
@@ -1297,7 +1297,7 @@
 					this.computeVelocity(this.vel);
 					
 					// check for collision
-					var collision = this.collisionMap.checkCollision(this.collisionBox, this.vel);
+					var collision = me.game.collisionMap.checkCollision(this.collisionBox, this.vel);
 
 					// update some flags
 					this.onslope  = collision.yprop.isSlope || collision.xprop.isSlope;
