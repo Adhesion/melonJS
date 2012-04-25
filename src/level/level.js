@@ -768,21 +768,17 @@
 				// and pass the level id as parameter
 				me.utils.resetGUID(levelId);
 				
-                console.log( "loading & resetting" );
-                console.log( levelId );
 				// load the level
 				levels[levelId].reset();
 				levels[levelId].load();
-                console.log( "reset." );
-                
                 
                 if ( levels[levelId] != levels[levelIdx[currentLevelIdx]] )
                 {
-                    console.log( "setting current idx to null" );
-                    console.log( levelIdx[currentLevelIdx] );
+                    //console.log( "setting current idx to null" );
+                    //console.log( levelIdx[currentLevelIdx] );
                     delete levels[levelIdx[currentLevelIdx]];
-                    console.log( "different level, printing" );
-                    for ( var i in levels )
+                    //console.log( "different level, printing" );
+                    /*for ( var i in levels )
                     {
                         var l = levels[i];
                         if ( l )
@@ -795,10 +791,9 @@
                         {
                             console.log( "null level" );
                         }
-                    }
+                    }*/
                 }
 			
-                
 				// update current level index
 				currentLevelIdx = levelIdx.indexOf(levelId);
 				
