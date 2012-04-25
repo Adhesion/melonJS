@@ -772,6 +772,8 @@
 				levels[levelId].reset();
 				levels[levelId].load();
                 
+				// delete previous level (if not same) to save memory
+				// probably breaks revisiting levels
                 if ( levels[levelId] != levels[levelIdx[currentLevelIdx]] )
                 {
                     //console.log( "setting current idx to null" );
